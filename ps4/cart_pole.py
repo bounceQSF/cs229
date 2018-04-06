@@ -33,7 +33,7 @@ class CartPole:
         Returns
         -------
         new_state : tuple
-            Updated state vector of new_x, new_x_dot, nwe_theta, new_theta_dot
+            Updated state vector of new_x, new_x_dot, new_theta, new_theta_dot
         """
         x, x_dot, theta, theta_dot = state_tuple
         costheta, sintheta = cos(theta), sin(theta)

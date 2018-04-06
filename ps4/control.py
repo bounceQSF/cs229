@@ -4,8 +4,10 @@ Problem Set 4
 Question: Reinforcement Learning: The inverted pendulum
 Author: Sanyam Mehra, sanyam@stanford.edu
 """
-from __future__ import division, print_function
 from ps4.cart_pole import CartPole, Physics
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import lfilter
 
 """
 Parts of the code (cart and pole dynamics, and the state
@@ -86,7 +88,6 @@ initial learning quickly, and start the display only after the
 performance is reasonable.
 """
 
-
 # Simulation parameters
 pause_time = 0.0001
 min_trial_length_to_start_display = 100
@@ -135,7 +136,16 @@ state = cart_pole.get_state(state_tuple)
 
 ###### BEGIN YOUR CODE ######
 # TODO:
-raise NotImplementedError('Initializations not implemented')
+transition_record = np.zeros((NUM_STATES, NUM_ACTIONS, NUM_STATES))
+
+# reward_count = np.zeros(NUM_STATES, dtype=np.int)
+# reward_sum = np.zeros(NUM_STATES)  # why？
+
+states_reward = np.zeros(NUM_STATES, dtype=np.float32)
+states_reward[-1] = -1  # I suppose this matrix is fixed
+transition_prob = np.ones((NUM_STATES, NUM_ACTIONS, NUM_STATES), dtype=np.float32) / NUM_STATES
+value_estimated = np.random.uniform(0, 0.1, NUM_STATES)
+
 ###### END YOUR CODE ######
 
 # This is the criterion to end the simulation.
@@ -158,6 +168,7 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
     # TODO:
     # raise NotImplementedError('Action choice not implemented')
     # action = 0 if np.random.uniform() < 0.5 else 1
+    action = np.argmax(np.sum(transition_prob[state] * value_estimated, axis=1))
     ###### END YOUR CODE ######
 
     # Get the next state by simulating the dynamics
@@ -188,8 +199,12 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
 
     ###### BEGIN YOUR CODE ######
     # TODO:
-    raise NotImplementedError('Update T and R not implemented')
+    transition_record[state, action, new_state] += 1
+    # reward_count[state] += 1
+    # reward_sum[state] += 1
     # record the number of times `state, action, new_state` occurs
+
+    # record for what?
     # record the rewards for every `new_state`
     # record the number of time `new_state` was reached
     ###### END YOUR CODE ######
@@ -197,7 +212,6 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
     # Recompute MDP model whenever pole falls
     # Compute the value function V for the new model
     if new_state == NUM_STATES - 1:
-
         # Update MDP model using the current accumulated statistics about the
         # MDP - transitions and rewards.
         # Make sure you account for the case when a state-action pair has never
@@ -207,7 +221,9 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
 
         ###### BEGIN YOUR CODE ######
         # TODO:
-        raise NotImplementedError('MDP  T and R update not implemented')
+        s = np.sum(transition_record, axis=2)
+        to_update = s > 0
+        transition_prob[to_update] = transition_record[to_update] / s[to_update].reshape(-1, 1)
         ###### END YOUR CODE ######
 
         # Perform value iteration using the new estimated model for the MDP.
@@ -217,8 +233,18 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
         # variable that checks when the whole simulation must end.
 
         ###### BEGIN YOUR CODE ######
-        # TODO:
-        raise NotImplementedError('Value iteration choice not implemented')
+        delta = TOLERANCE
+        count = 0
+        while delta >= TOLERANCE:
+            new_value_estimated = states_reward + \
+                                  GAMMA * np.max(np.sum(transition_prob * value_estimated, axis=2), axis=1)
+            delta = np.max(np.abs(new_value_estimated - value_estimated))
+            value_estimated = new_value_estimated
+            count += 1
+        if count == 1:
+            consecutive_no_learning_trials += 1
+        else:
+            consecutive_no_learning_trials = 0
         ###### END YOUR CODE ######
 
     # Do NOT change this code: Controls the simulation, and handles the case
@@ -248,9 +274,9 @@ while consecutive_no_learning_trials < NO_LEARNING_THRESHOLD:
 log_tstf = np.log(np.array(time_steps_to_failure))
 plt.plot(np.arange(len(time_steps_to_failure)), log_tstf, 'k')
 window = 30
-w = np.array([1/window for _ in range(window)])
+w = np.array([1 / window for _ in range(window)])
 weights = lfilter(w, 1, log_tstf)
-x = np.arange(window//2, len(log_tstf) - window//2)
+x = np.arange(window // 2, len(log_tstf) - window // 2)
 plt.plot(x, weights[window:len(log_tstf)], 'r--')
 plt.xlabel('Num failures')
 plt.ylabel('Num steps to failure')
